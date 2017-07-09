@@ -44,7 +44,7 @@ var makertron_server = (function () {
 
   // Load in the config
   var config = JSON.parse(fs.readFileSync(PATH+'config.jsn', 'utf8'));
-  var userobject = JSON.parse(fs.readFileSync(PATH+'default_user.jsn', 'utf8'));
+  //var userobject = JSON.parse(fs.readFileSync(PATH+'default_user.jsn', 'utf8'));
 
 	var VERSION = config.version; 
 	var PORT = config.port; 
@@ -548,7 +548,7 @@ var makertron_server = (function () {
 			}
 
 			out.cube = function() { 		
-
+				console.log("cuuube!") 
 				var p = this.get_parent() 
 				if ( this.stack[this.stack_index] === undefined ) this.stack[this.stack_index] = [] 
 				this.stack[this.stack_index].push({ 
@@ -640,7 +640,7 @@ var makertron_server = (function () {
 			// Walk and keep walking until no more incomplete nodes are left
 			// Brute force style. Eventually we will hit every node. 
 			// -------------------------------------------------------------
-			out.walk = function() { 
+			out.walk = function() {  
 				var i,ii,iii
 				for ( i = 0; i < this.stack.length; i++ ) { 
 					for ( ii = 0; ii < this.stack[i].length; ii++ ) {
@@ -733,7 +733,7 @@ var makertron_server = (function () {
 			// ============================================================
 			// call our brep library 
 			// ============================================================
-			out.brep_lib = ffi.Library('./brep.so', { 
+			out.brep_lib = ffi.Library('/usr/src/app/brep.so', { 
 								"box":["string",["float","float","float","float","float","float"]],
 								"sphere":["string",["float","float","float","float"]],
 								"cone":["string",["float","float","float","float"]],
@@ -758,7 +758,7 @@ var makertron_server = (function () {
 		}
 
 	
-	  this.onmessage = function(event) {
+	  this.onmessage = function(event) { 
 		  this.process_scad( event['data'] )   
   	  //self.close();
   	}
@@ -778,25 +778,27 @@ var makertron_server = (function () {
 	io.set('heartbeat timeout', 1100000);
 
 	io.on('connection', function(socket){
-		
 		// Parse an openscad object
-		socket.on('OPENSCAD',function(data){	
+		socket.on('OPENSCAD',function(data){
 			if ( data!==false) {
 				worker.onmessage = function(event) {
 					var dat = event['data'] 
-					if ( dat['type'] === "log" ) { console.log(dat['data']); socket.emit('OPENSCADLOG' ,  dat['data'] ) }
+					if ( dat['type'] === "log" ) { socket.emit('OPENSCADLOG' ,  dat['data'] ) }
 					if ( dat['type'] === "object" ) socket.emit('OPENSCADRES' ,  dat['data'] )
 				};		
 				worker.postMessage(data['script']);
-			} 
+			}
 		});
-	
+
 	});
 
-	http.listen(PORT, function(){
+	http.listen(PORT,function(){
 		logger('listening on *:',PORT);
 	});
+
+ 
 	
+
 }());
 
 

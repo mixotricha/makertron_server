@@ -14,12 +14,12 @@
 		"ref-struct" : "^*",
 		"tiny-worker": "^*",
 		"cradle": "^*",
-    "express": "^4.13.3",
-	   "ffi": "^2.1.0",
-    "fs": "0.0.2",
-    "https": "^1.0.0",
-    "net": "^1.0.2",
-    "request": "^2.75.0",
-    "socket.io": "^1.4.8"
+    "express": "^*",
+	   "ffi": "^*",
+    "fs": "^*",
+    "https": "^*",
+    "net": "^*",
+    "request": "^*",
+    "socket.io": "^*"
   }
 }
