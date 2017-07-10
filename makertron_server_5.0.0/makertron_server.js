@@ -25,8 +25,10 @@ var makertron_server = (function () {
   // ===========================================================
   // logging 
   // ===========================================================
-  var logger = function() { console.log( JSON.stringify(arguments) ); };
+	var log = require('simple-node-logger').createSimpleLogger('project.log');
+	 
 
+	var debug = require('debug')
 	var https = require('https');
 	var request = require("request");
 	//var Promise = require("bluebird");
@@ -61,8 +63,8 @@ var makertron_server = (function () {
 	//var OPENSCADPORT = config.openscadport; 
 	var OPENSCADHOSTS = config.openscadhosts; 
 	
-  logger( "Makertron Starting Version:" + config.version );
-  logger( "Path:" , PATH );
+  log.info( "Makertron Starting Version:" + config.version );
+  log.info( "Path:" , PATH );
 	
   // ===========================================================
 	// handy little helpers for string replace and for chunking 
@@ -230,7 +232,7 @@ var makertron_server = (function () {
 			// Openscad Cube 
 			// ===============================================================
 			out.create_cube = function() {
-				
+				this.logger("Cube",arguments[0])
 				var x = 0
 				var y = 0 
 				var z = 0
@@ -364,7 +366,7 @@ var makertron_server = (function () {
 			// Create a polgon openscad 
 			// ===================================================================
 			out.create_polygon = function() {
-				 
+				this.logger("Polygon") 
 				var i = 0
 				var paths  = arguments[0]['paths'] 
 				var points = arguments[0]['points'] 
@@ -396,6 +398,7 @@ var makertron_server = (function () {
 			// Create a circle 
 			// ===================================================================
 			out.create_circle = function() { 
+				this.logger("Circle")
 				var radius = arguments[0]['radius']
 		 		var obj = this.brep_lib.circle(radius); 
 				arguments[0]['obj'] = obj 
@@ -427,6 +430,7 @@ var makertron_server = (function () {
 
 			// Boolean intersection 
 			out.create_intersection = function() { 
+				this.logger("Intersection")
 				var children = arguments[0]['children'] 
 				var obj = children[0]
 		 		for ( var i =1; i < children.length; i++ ) {
@@ -709,6 +713,11 @@ var makertron_server = (function () {
 				postMessage({ type: "log" , data: JSON.stringify(arguments) })
 			}
 
+			// send log results to client 	
+			out.error = function() { 
+				postMessage({ type: "error" , data: JSON.stringify(arguments) })
+			}
+
 			// output result 
 			out.run = function() { 		
 				var objects = [] 
@@ -733,25 +742,33 @@ var makertron_server = (function () {
 			// ============================================================
 			// call our brep library 
 			// ============================================================
-			out.brep_lib = ffi.Library('/usr/src/app/brep.so', { 
-								"box":["string",["float","float","float","float","float","float"]],
-								"sphere":["string",["float","float","float","float"]],
-								"cone":["string",["float","float","float","float"]],
-								"polyhedron":["string",[ArrayType(ArrayType('int')),ArrayType('float'),'int']],
-								"difference":["string",["string","string"]],
-								"uni":["string",["string","string"]],
-								"intersection":["string",["string","string"]],
-								"write_stl":["string",["string"]],
-								"translate":["string",["float","float","float","string"]],
-								"scrotum":["string",["string"]],
-								"rotateX":["string",["float","string"]],
-								"rotateY":["string",["float","string"]],
-								"rotateZ":["string",["float","string"]],
-								"circle":["string",["float"]],
-								"extrude":["string",["float","string"]],
-								"cylinder":["string",["float","float","float"]],
-								"fix_brep":["string",["string"]]
-							})
+				try { 
+					debug('Loading the brep.so')
+					out.brep_lib = ffi.Library('/usr/src/app/brep.so', { 
+										"box":["string",["float","float","float","float","float","float"]],
+										"sphere":["string",["float","float","float","float"]],
+										"cone":["string",["float","float","float","float"]],
+										"polyhedron":["string",[ArrayType(ArrayType('int')),ArrayType('float'),'int']],
+										"difference":["string",["string","string"]],
+										"uni":["string",["string","string"]],
+										"intersection":["string",["string","string"]],
+										"write_stl":["string",["string"]],
+										"translate":["string",["float","float","float","string"]],
+										"scrotum":["string",["string"]],
+										"rotateX":["string",["float","string"]],
+										"rotateY":["string",["float","string"]],
+										"rotateZ":["string",["float","string"]],
+										"circle":["string",["float"]],
+										"extrude":["string",["float","string"]],
+										"cylinder":["string",["float","float","float"]],
+										"fix_brep":["string",["string"]]
+									}) 
+				} catch(e) { 
+					out.error(e) 
+					exit(); 
+				}
+									 
+
 				out.foo() 
 				out.walk()  		
 				postMessage( { type:"object" , data: out.run() })	
@@ -770,35 +787,44 @@ var makertron_server = (function () {
 
 	var io = require('socket.io')(http);
 
+	
 	app.get('/', function(req, res){
 	 res.send("Makertron server version "+ VERSION + "\n"); 
 	});
 
 	//io.set('heartbeat interval', 5000);
-	io.set('heartbeat timeout', 1100000);
+	//io.set('heartbeat timeout', 1100000);
 
 	io.on('connection', function(socket){
+		debug('Getting connection')
 		// Parse an openscad object
 		socket.on('OPENSCAD',function(data){
+			debug('Processing client request') 
 			if ( data!==false) {
 				worker.onmessage = function(event) {
 					var dat = event['data'] 
-					if ( dat['type'] === "log" ) { socket.emit('OPENSCADLOG' ,  dat['data'] ) }
-					if ( dat['type'] === "object" ) socket.emit('OPENSCADRES' ,  dat['data'] )
+					if ( dat['type'] === "log"    ) { socket.emit('OPENSCADLOG' ,  dat['data'] ) }
+					if ( dat['type'] === "object" ) { socket.emit('OPENSCADRES' ,  dat['data'] ) }
+					if ( dat['type'] === "error"  ) { log.info(dat['data'])                      }
 				};		
 				worker.postMessage(data['script']);
 			}
 		});
-
+		socket.on('error',function(err){
+			log.info(err) 
+		})
 	});
 
 	http.listen(PORT,function(){
-		logger('listening on *:',PORT);
+		log.info('listening on port: ',PORT);
 	});
 
- 
+ 	//worker.onmessage = function(event) {
+	//	console.log(event)
+	//}
+	//var test = "this.foo = function(){ this.cube({size:50});}" 
+	//worker.postMessage(test);
 	
-
 }());
 
 

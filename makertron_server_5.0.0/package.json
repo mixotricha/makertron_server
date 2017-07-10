@@ -20,6 +20,8 @@
     "https": "^*",
     "net": "^*",
     "request": "^*",
-    "socket.io": "^*"
+    "socket.io": "^*",
+		"simple-node-logger":"^*",
+		"debug":"^*"
   }
 }
