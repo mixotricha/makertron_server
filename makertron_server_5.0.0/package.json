@@ -8,6 +8,7 @@
     "start": "node makertron_server.js"
   },
   "dependencies": {
+		"file-system" : "^*",
 		"lodash" : "^*",
 		"ref" : "^*",
 		"ref-array" : "^*",

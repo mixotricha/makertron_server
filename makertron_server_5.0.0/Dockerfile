@@ -21,6 +21,7 @@ COPY brep.so /usr/src/app
 # Install Opencascade libaries 
 RUN mkdir -p /home/mixotricha/workspace/opencascade-7.1.0/lin64/gcc/lib/
 RUN mv lib/* /home/mixotricha/workspace/opencascade-7.1.0/lin64/gcc/lib/
+
 RUN export DEBUG=*	
 EXPOSE 3000
 EXPOSE 80 

@@ -33,7 +33,7 @@ var makertron_server = (function () {
 	var request = require("request");
 	//var Promise = require("bluebird");
 	//var sprintf = require('sprintf').sprintf;
-	var fs = require('fs');
+	var fs = require('file-system');
 
 	var EventEmitter = require("events").EventEmitter;
 	var cradle = require('cradle');
@@ -118,7 +118,9 @@ var makertron_server = (function () {
 		var StructType = require('ref-struct');
 		var ffi = require("ffi");
 		var ffi = require("ffi");
-		
+		var debug = require("debug") 
+		var fs = require("file-system") 
+
 		// ===================================================
 		// Build and execute the resulting javascript 
 		// ===================================================
@@ -126,12 +128,12 @@ var makertron_server = (function () {
 
 			var Out 
 
-			try {  
+			//try {  
 				Out = Function(result) 
-			}
-			catch(e) {   
-				Out = Function("this.foo = function(){this.logger('An error in syntax: '+e);}") 
-			}
+			//}
+			//catch(e) {   
+			//	Out = Function("this.foo = function(){this.logger('An error in syntax: '+e);}") 
+			//}
 
 			var out = new Out()
 
@@ -224,7 +226,7 @@ var makertron_server = (function () {
 				if ( r === 0 || r === undefined ) { 
 					r = 1  
 				}
-				var obj = this.brep_lib.sphere(r,0.0,0.0,0.0)		
+				var obj = this.brep_lib.sphere(r,0.0,0.0,0.0)	 	
 				return obj 
 			} 
 
@@ -271,6 +273,7 @@ var makertron_server = (function () {
 					z = -(zs / 2) 
 				}			
 				var obj = this.brep_lib.box(x,y,z,xs,ys,zs)	
+
 				return obj 
 		
 			} 
@@ -444,6 +447,7 @@ var makertron_server = (function () {
 		 	
 			out.stack = [] 
 			out.stack_index = 0 
+			out.quality = 0.1
 
 			// --------------------------------------------------------
 			// Generate a hashed string
@@ -721,30 +725,39 @@ var makertron_server = (function () {
 			// output result 
 			out.run = function() { 		
 				var objects = [] 
-				try {
+				//try {
 					for ( var i = 0; i < out.stack.length; i++ ) {
 						for ( var ii = 0; ii < out.stack[i].length; ii++ ) { 
 							if  ( out.stack[i][ii]['parent'] === "root" ) { 
 								for ( var iii = 0; iii < out.stack[i][ii]['objects'].length; iii++ ) { 
-									objects.push( this.brep_lib.write_stl(out.stack[i][ii]['objects'][iii]) )
+									objects.push(this.brep_lib.convert_brep_tostring(out.stack[i][ii]['objects'][iii],this.quality)) 
 								} 
 							}
 						}  
 					}
 					return objects
-				}
-				catch(e) { 
-					this.logger("Failed to generate result",e)
-					return false
-				}
+				//}
+				//catch(e) { 
+				//	this.logger("Failed to generate result",e)
+				//	return false
+				//}
+				 
 			}
 
 			// ============================================================
 			// call our brep library 
 			// ============================================================
-				try { 
+				//try { 
 					debug('Loading the brep.so')
-					out.brep_lib = ffi.Library('/usr/src/app/brep.so', { 
+					var brep_path = '' 
+					if (fs.existsSync('./brep.so')) {
+    				brep_path = './brep.so' 
+					}
+					else { 		
+						brep_path = '/usr/src/app/brep.so'
+					}
+		
+					out.brep_lib = ffi.Library(brep_path, { 
 										"box":["string",["float","float","float","float","float","float"]],
 										"sphere":["string",["float","float","float","float"]],
 										"cone":["string",["float","float","float","float"]],
@@ -752,21 +765,19 @@ var makertron_server = (function () {
 										"difference":["string",["string","string"]],
 										"uni":["string",["string","string"]],
 										"intersection":["string",["string","string"]],
-										"write_stl":["string",["string"]],
+										"convert_brep_tostring":["string",["string","float"]],
 										"translate":["string",["float","float","float","string"]],
-										"scrotum":["string",["string"]],
 										"rotateX":["string",["float","string"]],
 										"rotateY":["string",["float","string"]],
 										"rotateZ":["string",["float","string"]],
 										"circle":["string",["float"]],
 										"extrude":["string",["float","string"]],
-										"cylinder":["string",["float","float","float"]],
-										"fix_brep":["string",["string"]]
+										"cylinder":["string",["float","float","float"]]
 									}) 
-				} catch(e) { 
-					out.error(e) 
-					exit(); 
-				}
+				//} catch(e) { 
+				//	out.error(e) 
+				//	exit(); 
+			//	}
 									 
 
 				out.foo() 
@@ -819,12 +830,30 @@ var makertron_server = (function () {
 		log.info('listening on port: ',PORT);
 	});
 
- 	//worker.onmessage = function(event) {
-	//	console.log(event)
-	//}
-	//var test = "this.foo = function(){ this.cube({size:50});}" 
-	//worker.postMessage(test);
+ 	/*worker.onmessage = function(event) {
+		var output = ""
+		var obj = JSON.parse(event['data']['data'])
+		output += "solid shape, STL ascii file, created with Open CASCADE Technology\n";
+		for ( var i = 0; i < obj.length-1; i+=9 ) {
+			output += " facet normal 0.0 0.0 0.0\n";
+      output +=  "   outer loop\n";
+      output +=  "     vertex " + obj[i+0] + " " + obj[i+1] + " " + obj[i+2] + "\n";
+      output +=  "     vertex " + obj[i+3] + " " + obj[i+4] + " " + obj[i+5] + "\n";
+      output +=  "     vertex " + obj[i+6] + " " + obj[i+7] + " " + obj[i+8] + "\n";
+      output +=  "   endloop\n";
+      output +=  " endfacet\n";
+		}
+		output += "endsolid shape\n"
+		console.log(output)
+	}
+	//var test = "this.foo = function(){ this.sphere({r:50});}" 
+
+//var test = "this.foo = function(){this.polyhedron({points:[[10.0,10.0,0.0],[10,-10,0],[-10,-10,0],[-10,10,0],[0,0,10]],faces:[[0,1,4],[1,2,4],[2,3,4],[3,0,4],[1,0,3],[2,1,3]]});}"
+
+	//worker.postMessage(test);*/
 	
+	
+
 }());
 
 
