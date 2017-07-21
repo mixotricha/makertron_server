@@ -160,6 +160,60 @@ var makertron_server = (function () {
 		
 			// Brep implementation of primitives and actions 
 
+			// =================================================================
+			// Openscad translate
+			// =================================================================
+			out.create_translate = function() { 
+				this.logger("Translate: ",arguments[0])
+				// Bit smarter management of arguments Remember first array wins and we reject anything else.   
+				var keys = Object.keys(arguments[0])
+  			var vector = [] 
+  			for ( var i = 0; i < keys.length; i++ ) {
+  				var arg = arguments[0][keys[i]]
+    			if ( arg instanceof Array) { vector = arg; break; } // Will always take first vector given to us  
+  			}
+				if ( vector.length === 0 ) this.logger("Invalid Arguments To Translate: ",arguments[0])				
+				var x   = parseFloat(vector[0]) 
+				var y   = parseFloat(vector[1]) 
+				var z   = parseFloat(vector[2]) 
+				var obj = arguments[0]['obj']
+				var result = this.brep_lib.translate( x , y , z , obj ) 
+				return result
+			}
+
+			// ==================================================================
+			// Openscad Rotate 
+			// ==================================================================
+			out.create_rotate = function() { 
+				this.logger("Rotate: ",arguments[0])
+				var r = Math.PI / 180
+				// Bit smarter management of arguments Remember first array wins and we reject anything else.   
+				var keys = Object.keys(arguments[0])
+  			var vector = [] 
+  			for ( var i = 0; i < keys.length; i++ ) {
+  				var arg = arguments[0][keys[i]]
+    			if ( arg instanceof Array) { vector = arg; break; } // Will always take first vector given to us  
+  			}
+				if ( vector.length === 0 ) this.logger("Invalid Arguments To Rotate: ",arguments[0])
+				var x_rotate   = parseFloat(vector[0]) * r 
+				var y_rotate   = parseFloat(vector[1]) * r 
+				var z_rotate   = parseFloat(vector[2]) * r
+				var obj        = arguments[0]['obj']
+				var result = this.brep_lib.rotateX( x_rotate , obj    )
+						result = this.brep_lib.rotateY( y_rotate , result )
+						result = this.brep_lib.rotateZ( z_rotate , result )
+				return result
+			}
+
+			// Perform linear extrude 
+			out.create_linear_extrude = function() {
+				this.logger("Linear Extrude: ", arguments[0]) 
+				var object = arguments[0]['object'] 
+				var height = arguments[0]['height'] 
+				return this.brep_lib.extrude(height,object); 
+			}
+
+
 			// =======================================================
 			// Openscad radius convention 
 			// Note that openscads calling convention for various prims
@@ -179,53 +233,30 @@ var makertron_server = (function () {
 					return undefined;
 				}
 			}
-			// =================================================================
-			// Openscad translate
-			// =================================================================
-			out.create_translate = function() { 
-				this.logger("Translate: ",arguments[0])
-				var x   = parseFloat(arguments[0]['vector'][0]) 
-				var y   = parseFloat(arguments[0]['vector'][1]) 
-				var z   = parseFloat(arguments[0]['vector'][2]) 
-				var obj = arguments[0]['obj']
-				var result = this.brep_lib.translate( x , y , z , obj ) 
-				return result
-			}
-
-			// ==================================================================
-			// Openscad Rotate 
-			// ==================================================================
-			out.create_rotate = function() { 
-				this.logger("Rotate: ",arguments[0])
-				var r = Math.PI / 180
-				var x_rotate   = parseFloat(arguments[0]['vector'][0]) * r 
-				var y_rotate   = parseFloat(arguments[0]['vector'][1]) * r 
-				var z_rotate   = parseFloat(arguments[0]['vector'][2]) * r
-				var obj        = arguments[0]['obj']
-				var result = this.brep_lib.rotateX( x_rotate , obj    )
-						result = this.brep_lib.rotateY( y_rotate , result )
-						result = this.brep_lib.rotateZ( z_rotate , result )
-				return result
-			}
-
-			// Perform linear extrude 
-			out.create_linear_extrude = function() {
-				this.logger("Linear Extrude: ", arguments[0]) 
-				var object = arguments[0]['object'] 
-				var height = arguments[0]['height'] 
-				return this.brep_lib.extrude(height,object); 
-			}
 
 			// =====================================================
 			// Openscad Sphere 
 			// =====================================================
 			out.create_sphere = function() { 
 				this.logger("Sphere: ",arguments[0])
-				var r = 0		
-				r = this.lookup_radius( parseFloat(arguments[0]['d']) , parseFloat(arguments[0]['r']) ) 
+				var r = undefined , d = undefined 
+				// Bit smarter management of arguments. Accept arrays. Each value overides a previous value but only one other argument will be size.    
+				var keys = Object.keys(arguments[0])
+  			var vector = [] 
+  			for ( var i = 0; i < keys.length; i++ ) {
+  				var arg = arguments[0][keys[i]]
+   				if ( typeof(arg) === "number" && keys[i] !== "r" && keys[i] !== "d" ) { 
+						r = parseFloat(arg) 
+						break; 
+					}	
+  			}			
+				if ( arguments[0]['r'] !== undefined ) { r = parseFloat(arguments[0]['r']) }
+				if ( arguments[0]['d'] !== undefined ) { d = parseFloat(arguments[0]['d']) }
+				r = this.lookup_radius( d , r ) 
 				if ( r === 0 || r === undefined ) { 
 					r = 1  
 				}
+				this.debug(["sphere",r,d])  
 				var obj = this.brep_lib.sphere(r,0.0,0.0,0.0)	 	
 				return obj 
 			} 
@@ -242,28 +273,22 @@ var makertron_server = (function () {
 				var ys = 1 
 				var zs = 1 
 				var center = false 
-
-				//if ( arguments[0]['size'] === undefined && arguments[0]['vector'] === undefined ) { 
-				//	if ( typeof(arguments[0]) === "number" ) {
-						  console.log( arguments )  
-				//	}
-				//	else { 
-				//		this.logger("Cube has no specificed size. Defaulting to unit cube.") 
-				//	}
-				//}
-				
-				if ( arguments[0]['vector'] !== undefined ) { arguments[0]['size'] = arguments[0]['vector'] }
-				
-				if ( typeof(arguments[0]['size']) === "number" ) { 
-					xs = parseFloat(arguments[0]['size'])
-				 	ys = parseFloat(arguments[0]['size'])
-					zs = parseFloat(arguments[0]['size'])
-				}
-				if ( typeof(arguments[0]['size']) === "object" ) {
-					xs = parseFloat(arguments[0]['size'][0])
-					ys = parseFloat(arguments[0]['size'][1])
-					zs = parseFloat(arguments[0]['size'][2])
-				}
+				// Bit smarter management of arguments. Accept arrays. Each value overides a previous value but only one other argument will be size.    
+				var keys = Object.keys(arguments[0])
+  			var vector = [] 
+  			for ( var i = 0; i < keys.length; i++ ) {
+  				var arg = arguments[0][keys[i]]
+    			if ( (arg instanceof Array)) { 
+						xs = parseFloat(arg[0])
+						ys = parseFloat(arg[1])
+						zs = parseFloat(arg[2])
+					} 
+					else if ( typeof(arg) === "number" ) { 
+						xs = parseFloat(arg)
+						ys = parseFloat(arg)
+						zs = parseFloat(arg)
+					}	
+  			}			
 				if ( typeof(arguments[0]['center']) === "boolean" ) {
 					center = arguments[0]['center']
 				}
@@ -272,10 +297,9 @@ var makertron_server = (function () {
 					y = -(ys / 2) 
 					z = -(zs / 2) 
 				}			
+				this.debug(["cube",xs,ys,zs,center])  
 				var obj = this.brep_lib.box(x,y,z,xs,ys,zs)	
-
 				return obj 
-		
 			} 
 
 			// ===============================================================
@@ -284,21 +308,42 @@ var makertron_server = (function () {
 			out.create_cylinder = function cylinder() { 
 				this.logger("Cylinder")  
 				var obj
+				var r  = 1
 				var r1 = 1 
 				var r2 = 1 
 				var h  = 1
 				var y = 0 
+				var index = 0 
 				var center = false 
-				if ( arguments[0]['r'] !== undefined ) { 
-					arguments[0]['r1'] = arguments[0]['r'] 
-				} 
-				if ( arguments[0]['r1'] === undefined ) { 
-					this.logger("No default radius") 
-					return false 
-				} 
-				if ( arguments[0]['r2'] === undefined ) { 
-					arguments[0]['r2'] = arguments[0]['r1']  
-				} 
+				// Bit smarter management of arguments. Reject arrays. Each value overides a previous value.    
+				var keys = Object.keys(arguments[0])
+  			var vector = [] 
+  			for ( var i = 0; i < keys.length; i++ ) {
+  				var arg = arguments[0][keys[i]]
+    			if ( !(arg instanceof Array)) { // reject arrays 
+						if ( keys[i] === "r" ) { 
+							r1 = arg
+							r2 = arg
+						}
+						if ( keys[i] === "r1" ) {	
+							r1 = arg 
+						}
+						if ( keys[i] === "r2" ) { 
+							r2 = arg
+						}
+						if ( keys[i] === "h"  ) { 
+							h  = arg 
+						}
+						if ( keys[i] !== "h" && keys[i] !== "r" && keys[i] !== "r1" && keys[i] !== "r2" )  { 
+							if ( index === 0 ) { h = arg }
+							if ( index === 1 ) { r1 = arg }
+							if ( index === 2 ) { r2 = arg }
+							// any arg beyond this rejected  
+							index++  					
+						}
+					}  
+  			}			
+				this.debug(["cylinder",h,r,r1,r2])  
 				if ( typeof(arguments[0]['r1']) === "number"      ) { r1 = parseFloat(arguments[0]['r1'])         }
 				if ( typeof(arguments[0]['r2']) === "number"      ) { r2 = parseFloat(arguments[0]['r2'])         }
 				if ( typeof(arguments[0]['h'] ) === "number"      ) { h =  parseFloat(arguments[0]['h'] )         }
@@ -317,32 +362,26 @@ var makertron_server = (function () {
 			// Create a polyhedron openscad 
 			// ===================================================================
 			out.create_polyhedron = function() {
-
 				var i = 0
 				var ii = 0
 				var faces = [] 
 				var points = []
-		
 				if ( arguments[0]['triangles'] !== undefined ) {
 					this.logger("DEPRECATED: polyhedron(triangles=[]) will be removed in future releases. Use polyhedron(faces=[]) instead.") 
 					arguments[0]['faces'] = arguments[0]['triangles']
 	 			}
-
 				if ( arguments[0]['points'] === undefined ) { 
 					this.logger("WARNING: PolySet has degenerate polygons")
 					return false 
 				}
-
 				// This sort of ambiguous behaviour in openscad bothers me deeply. If it doesn't exist -fail- don't be inventing things ...  		
 				if ( arguments[0]['points'].length === 0 ) { 
 					arguments[0]['points'] = [[0,0,0]] 
 				}
-
 				// Really want a sanity check that makes sure that indexes in to point space actually return relevent points not just this 
 				// trusting this create and fail principle. 
 				var face_set = arguments[0]['faces'].reverse() // reverse the face winding to be compatible with booleans 
 				var point_set = arguments[0]['points']  
-	 			
 				// var convexity = arguments[0]['convexity'] // disregarding convexity for now 
 				// generate face lets with length as first index ( overhead but bit less work to get sizes in the c++ ) 
 				var face_set_length = face_set.length
@@ -361,7 +400,6 @@ var makertron_server = (function () {
 					if ( point_set[i][1] !== undefined ) { points.push( point_set[i][1] ) } else { points.push(0.0) }
 					if ( point_set[i][2] !== undefined ) { points.push( point_set[i][2] ) } else { points.push(0.0) }
 				}
-			
 				return this.brep_lib.polyhedron(faces,points,faces.length)
 			}
 
@@ -722,6 +760,10 @@ var makertron_server = (function () {
 				postMessage({ type: "error" , data: JSON.stringify(arguments) })
 			}
 
+			out.debug = function() { 
+				postMessage({ type: "debug" , data: JSON.stringify(arguments) })
+			}
+
 			// output result 
 			out.run = function() { 		
 				var objects = [] 
@@ -817,6 +859,7 @@ var makertron_server = (function () {
 					if ( dat['type'] === "log"    ) { socket.emit('OPENSCADLOG' ,  dat['data'] ) }
 					if ( dat['type'] === "object" ) { socket.emit('OPENSCADRES' ,  dat['data'] ) }
 					if ( dat['type'] === "error"  ) { log.info(dat['data'])                      }
+					if ( dat['type'] === "debug"  ) { log.info(dat['data'])                      }
 				};		
 				worker.postMessage(data['script']);
 			}
