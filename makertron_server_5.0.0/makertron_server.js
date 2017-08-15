@@ -1,20 +1,25 @@
-// ==========================================================
-// MAKERTRON Procedural Cad System Server Module 
-// Damien V Towning 
-// 2015
 
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-// ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-// DISCLAIMED. IN NO EVENT SHALL Alexandru Marasteanu BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
-// ==========================================================
+/***************************************************************************
+ *   Copyright (c) Damien Towning         (connolly.damien@gmail.com) 2017 *
+ *                                                                         *
+ *   This file is part of the Makertron CSG cad system.                    *
+ *                                                                         *
+ *   This library is free software; you can redistribute it and/or         *
+ *   modify it under the terms of the GNU Library General Public           *
+ *   License as published by the Free Software Foundation; either          *
+ *   version 2 of the License, or (at your option) any later version.      *
+ *                                                                         *
+ *   This library  is distributed in the hope that it will be useful,      *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+ *   GNU Library General Public License for more details.                  *
+ *                                                                         *
+ *   You should have received a copy of the GNU Library General Public     *
+ *   License along with this library; see the file COPYING.LIB. If not,    *
+ *   write to the Free Software Foundation, Inc., 59 Temple Place,         *
+ *   Suite 330, Boston, MA  02111-1307, USA                                *
+ *                                                                         *
+ ***************************************************************************/
 
 var makertron_server = (function () {
 
@@ -120,6 +125,8 @@ var makertron_server = (function () {
 		var ffi = require("ffi");
 		var debug = require("debug") 
 		var fs = require("file-system") 
+		var heartbeats = require('heartbeats');
+		var heart = heartbeats.createHeart(1000);
 
 		// ===================================================
 		// Build and execute the resulting javascript 
@@ -128,12 +135,12 @@ var makertron_server = (function () {
 
 			var Out 
 
-			//try {  
+			try {  
 				Out = Function(result) 
-			//}
-			//catch(e) {   
-			//	Out = Function("this.foo = function(){this.logger('An error in syntax: '+e);}") 
-			//}
+			}
+			catch(e) {   
+				Out = Function("this.foo = function(){this.logger('An error in syntax..');}") 
+			}
 
 			var out = new Out()
 
@@ -178,6 +185,27 @@ var makertron_server = (function () {
 				var z   = parseFloat(vector[2]) 
 				var obj = arguments[0]['obj']
 				var result = this.brep_lib.translate( x , y , z , obj ) 
+				return result
+			}
+
+			// =================================================================
+			// Openscad scale
+			// =================================================================
+			out.create_scale = function() { 
+				this.logger("Scale: ",arguments[0])
+				// Bit smarter management of arguments Remember first array wins and we reject anything else.   
+				var keys = Object.keys(arguments[0])
+  			var vector = [] 
+  			for ( var i = 0; i < keys.length; i++ ) {
+  				var arg = arguments[0][keys[i]]
+    			if ( arg instanceof Array) { vector = arg; break; } // Will always take first vector given to us  
+  			}
+				if ( vector.length === 0 ) this.logger("Invalid Arguments To Scale: ",arguments[0])				
+				var x   = parseFloat(vector[0]) 
+				var y   = parseFloat(vector[1]) 
+				var z   = parseFloat(vector[2]) 
+				var obj = arguments[0]['obj']
+				var result = this.brep_lib.scale( x , y , z , obj ) 
 				return result
 			}
 
@@ -479,6 +507,17 @@ var makertron_server = (function () {
 				}
 				return obj  
 			}
+			
+			// Boolean intersection 
+			out.create_minkowski = function() { 
+				this.logger("minkowski")
+				var children = arguments[0]['children'] 
+				var obj = children[0]
+		 		for ( var i =1; i < children.length; i++ ) {
+					var obj = this.brep_lib.minkowski( obj , children[i] ) 
+				}
+				return obj  
+			}
 	
 
 			// booleans
@@ -557,6 +596,19 @@ var makertron_server = (function () {
 				this.stack_increment()
 			}
 
+			out.minkowski = function() {  	
+				var p = this.get_parent() 
+				if ( this.stack[this.stack_index] === undefined ) this.stack[this.stack_index] = [] 		
+				this.stack[this.stack_index].push({ parent: p['parent'] , 
+																						parent_id: p['id'] , 
+																						operation:"minkowski" , 
+																						id: this.makeId() , 
+																						objects:[],
+																						done: false 
+																					})   
+				this.stack_increment()
+			}
+
 			out.union_end = function() {
 				this.stack_decrement(1)	
 			}
@@ -566,6 +618,10 @@ var makertron_server = (function () {
 			out.difference_end = function() {
 				this.stack_decrement(1)
 			}
+			out.minkowski_end = function() {
+				this.stack_decrement(1)
+			}
+
 			out.end = function() {
 				this.stack_decrement(1)
 			}
@@ -594,7 +650,6 @@ var makertron_server = (function () {
 			}
 
 			out.cube = function() { 		
-				console.log("cuuube!") 
 				var p = this.get_parent() 
 				if ( this.stack[this.stack_index] === undefined ) this.stack[this.stack_index] = [] 
 				this.stack[this.stack_index].push({ 
@@ -634,6 +689,21 @@ var makertron_server = (function () {
 				this.stack[this.stack_index].push({ parent: p['parent'] , 
 																						parent_id: p['id'], 
 																						operation: "translate" , 
+																						arguments: arguments[0], 
+																						id: this.makeId() ,
+																						objects: [] , 
+																						done: false 
+																					})
+		 
+				this.stack_increment()
+			}
+	
+			out.scale = function() { 
+				var p = this.get_parent() 
+				if ( this.stack[this.stack_index] === undefined ) this.stack[this.stack_index] = [] 
+				this.stack[this.stack_index].push({ parent: p['parent'] , 
+																						parent_id: p['id'], 
+																						operation: "scale" , 
 																						arguments: arguments[0], 
 																						id: this.makeId() ,
 																						objects: [] , 
@@ -693,6 +763,7 @@ var makertron_server = (function () {
 						if ( this.stack[i][ii]['done'] === false ) {  
 							var objects = this.children_complete( this.stack[i][ii]['operation'] , this.stack[i][ii]['id'] ) 
 							if ( objects !== false ) { 
+
 								if ( this.stack[i][ii]['operation'] === "translate" ) {  
 									for ( iii = 0; iii < objects.length; iii++ ) {
 										this.stack[i][ii]['arguments']['obj'] = objects[iii] 		 
@@ -703,6 +774,19 @@ var makertron_server = (function () {
 									this.stack[i][ii]['done'] = true 	
 									out.walk()
 								}
+
+								if ( this.stack[i][ii]['operation'] === "scale" ) {  
+									for ( iii = 0; iii < objects.length; iii++ ) {
+										this.stack[i][ii]['arguments']['obj'] = objects[iii] 		 
+										objects[iii] = this.create_scale( this.stack[i][ii]['arguments'] ) 
+										this.stack[i][ii]['arguments']['obj'] = [] 
+									}
+									this.stack[i][ii]['objects'] = ( objects )  
+									this.stack[i][ii]['done'] = true 	
+									out.walk()
+								}
+
+
 								if ( this.stack[i][ii]['operation'] === "rotate" ) {  
 									for ( iii = 0; iii < objects.length; iii++ ) {
 										this.stack[i][ii]['arguments']['obj'] = objects[iii] 		 
@@ -727,11 +811,19 @@ var makertron_server = (function () {
 								}
 
 								if ( this.stack[i][ii]['operation'] === "difference" ) { 	
-								objects = lodash.flatten(objects) 
+								  objects = lodash.flatten(objects) 
 									this.stack[i][ii]['objects'].push( this.create_difference({children:objects}) )   
 									this.stack[i][ii]['done'] = true
 									out.walk() 	
 								}
+
+							  if ( this.stack[i][ii]['operation'] === "minkowski" ) { 	
+									objects = lodash.flatten(objects) 
+								 	this.stack[i][ii]['objects'].push( this.create_minkowski({children:objects}) )   
+								 	this.stack[i][ii]['done'] = true
+									out.walk() 	
+								}
+
 							}
 						} 
 					}
@@ -764,10 +856,14 @@ var makertron_server = (function () {
 				postMessage({ type: "debug" , data: JSON.stringify(arguments) })
 			}
 
+			out.pulse = function() { 
+				postMessage({ type: "pulse"  })
+			}
+
 			// output result 
 			out.run = function() { 		
 				var objects = [] 
-				//try {
+				try {
 					for ( var i = 0; i < out.stack.length; i++ ) {
 						for ( var ii = 0; ii < out.stack[i].length; ii++ ) { 
 							if  ( out.stack[i][ii]['parent'] === "root" ) { 
@@ -778,18 +874,18 @@ var makertron_server = (function () {
 						}  
 					}
 					return objects
-				//}
-				//catch(e) { 
-				//	this.logger("Failed to generate result",e)
-				//	return false
-				//}
+				}
+				catch(e) { 
+					this.logger("Failed to generate result",e)
+					return false
+				}
 				 
 			}
 
 			// ============================================================
 			// call our brep library 
 			// ============================================================
-				//try { 
+					
 					debug('Loading the brep.so')
 					var brep_path = '' 
 					if (fs.existsSync('./brep.so')) {
@@ -798,33 +894,53 @@ var makertron_server = (function () {
 					else { 		
 						brep_path = '/usr/src/app/brep.so'
 					}
-		
-					out.brep_lib = ffi.Library(brep_path, { 
-										"box":["string",["float","float","float","float","float","float"]],
-										"sphere":["string",["float","float","float","float"]],
-										"cone":["string",["float","float","float","float"]],
-										"polyhedron":["string",[ArrayType(ArrayType('int')),ArrayType('float'),'int']],
-										"difference":["string",["string","string"]],
-										"uni":["string",["string","string"]],
-										"intersection":["string",["string","string"]],
-										"convert_brep_tostring":["string",["string","float"]],
-										"translate":["string",["float","float","float","string"]],
-										"rotateX":["string",["float","string"]],
-										"rotateY":["string",["float","string"]],
-										"rotateZ":["string",["float","string"]],
-										"circle":["string",["float"]],
-										"extrude":["string",["float","string"]],
-										"cylinder":["string",["float","float","float"]]
-									}) 
-				//} catch(e) { 
-				//	out.error(e) 
-				//	exit(); 
-			//	}
-									 
-
-				out.foo() 
-				out.walk()  		
-				postMessage( { type:"object" , data: out.run() })	
+					try { 
+						out.brep_lib = ffi.Library(brep_path, { 
+											"box":["string",["float","float","float","float","float","float"]],
+											"sphere":["string",["float","float","float","float"]],
+											"cone":["string",["float","float","float","float"]],
+											"polyhedron":["string",[ArrayType(ArrayType('int')),ArrayType('float'),'int']],
+											"difference":["string",["string","string"]],
+											"minkowski":["string",["string","string"]],
+											"uni":["string",["string","string"]],
+											"intersection":["string",["string","string"]],
+											"convert_brep_tostring":["string",["string","float"]],
+											"translate":["string",["float","float","float","string"]],
+											"scale":["string",["float","float","float","string"]],
+											"rotateX":["string",["float","string"]],
+											"rotateY":["string",["float","string"]],
+											"rotateZ":["string",["float","string"]],
+											"circle":["string",["float"]],
+											"extrude":["string",["float","string"]],
+											"cylinder":["string",["float","float","float"]],
+											"set_callback": [ "int", ["pointer"] ] 
+										}) 
+					}
+					catch(e) { 
+						out.logger("Error in brep core")
+					}
+						
+					// Callback from the native lib back into js
+					out.callback = ffi.Callback('void', ['string'],  function (msg) { 
+							out.logger(msg);  
+					})
+					// make an extra reference to callback to avoid GC.
+					process.on('exit', function() { out.callback })
+					// set the callback in our instance of the openscad library
+					out.brep_lib.set_callback( out.callback)
+			
+					heart.createEvent(1, function(){
+  					out.pulse();
+					});
+				
+				try { 
+					out.foo() 
+					out.walk()  		
+					postMessage( { type:"object" , data: out.run() })	
+				}
+				catch(e) { 
+					out.logger("Script Could Not Be Parsed.") 
+				}
 		}
 
 	
@@ -845,7 +961,8 @@ var makertron_server = (function () {
 	 res.send("Makertron server version "+ VERSION + "\n"); 
 	});
 
-	//io.set('heartbeat interval', 5000);
+	//io.set('pingInterval' ,2000) 
+	//io.set('pingTimeout' , 5000)
 	//io.set('heartbeat timeout', 1100000);
 
 	io.on('connection', function(socket){
@@ -856,17 +973,24 @@ var makertron_server = (function () {
 			if ( data!==false) {
 				worker.onmessage = function(event) {
 					var dat = event['data'] 
-					if ( dat['type'] === "log"    ) { socket.emit('OPENSCADLOG' ,  dat['data'] ) }
-					if ( dat['type'] === "object" ) { socket.emit('OPENSCADRES' ,  dat['data'] ) }
-					if ( dat['type'] === "error"  ) { log.info(dat['data'])                      }
-					if ( dat['type'] === "debug"  ) { log.info(dat['data'])                      }
+					if ( dat['type'] === "log"    ) { socket.emit('OPENSCADLOG' ,  dat['data'] )  }
+					if ( dat['type'] === "object" ) { socket.emit('OPENSCADRES' ,  dat['data'] )  }
+					if ( dat['type'] === "error"  ) { log.info(dat['data'])                       }
+					if ( dat['type'] === "debug"  ) { log.info(dat['data'])                       }
+					if ( dat['type'] === "pulse"  ) { socket.emit('PULSE' , "" )                  }
 				};		
 				worker.postMessage(data['script']);
 			}
 		});
+		
+		socket.on('close',function(err){
+			socket.emit('close',"") 
+		})
+		
 		socket.on('error',function(err){
 			log.info(err) 
 		})
+	
 	});
 
 	http.listen(PORT,function(){
