@@ -122,7 +122,6 @@ var makertron_server = (function () {
 		var ArrayType = require('ref-array');
 		var StructType = require('ref-struct');
 		var ffi = require("ffi");
-		var ffi = require("ffi");
 		var debug = require("debug") 
 		var fs = require("file-system") 
 		var heartbeats = require('heartbeats');
@@ -481,7 +480,7 @@ var makertron_server = (function () {
 				var children = arguments[0]['children']  
 				var obj = children[0]
 		 		for ( var i =1; i < children.length; i++ ) {
-					var obj = this.brep_lib.ffi_uni( obj , children[i] ) 
+					var obj = this.brep_lib.ffi_union( obj , children[i] ) 
 				}
 				return obj 
 			}
@@ -998,7 +997,7 @@ var makertron_server = (function () {
 		log.info('listening on port: ',PORT);
 	});
 
- 	/*worker.onmessage = function(event) {
+ 	worker.onmessage = function(event) {
 		var output = ""
 		var obj = JSON.parse(event['data']['data'])
 		output += "solid shape, STL ascii file, created with Open CASCADE Technology\n";
@@ -1014,7 +1013,8 @@ var makertron_server = (function () {
 		output += "endsolid shape\n"
 		console.log(output)
 	}
-	//var test = "this.foo = function(){ this.sphere({r:50});}" 
+	
+  var test = "this.foo = function(){ this.sphere({r:50});}" 
 
 //var test = "this.foo = function(){this.polyhedron({points:[[10.0,10.0,0.0],[10,-10,0],[-10,-10,0],[-10,10,0],[0,0,10]],faces:[[0,1,4],[1,2,4],[2,3,4],[3,0,4],[1,0,3],[2,1,3]]});}"
 
