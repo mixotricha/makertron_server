@@ -23,6 +23,7 @@
     "request": "^*",
     "socket.io": "^*",
 		"simple-node-logger":"^*",
-		"debug":"^*"
+		"debug":"^*",
+		"heartbeats":"^*"
   }
 }

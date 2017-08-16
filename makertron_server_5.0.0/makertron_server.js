@@ -184,7 +184,7 @@ var makertron_server = (function () {
 				var y   = parseFloat(vector[1]) 
 				var z   = parseFloat(vector[2]) 
 				var obj = arguments[0]['obj']
-				var result = this.brep_lib.translate( x , y , z , obj ) 
+				var result = this.brep_lib.ffi_translate( x , y , z , obj ) 
 				return result
 			}
 
@@ -205,7 +205,7 @@ var makertron_server = (function () {
 				var y   = parseFloat(vector[1]) 
 				var z   = parseFloat(vector[2]) 
 				var obj = arguments[0]['obj']
-				var result = this.brep_lib.scale( x , y , z , obj ) 
+				var result = this.brep_lib.ffi_scale( x , y , z , obj ) 
 				return result
 			}
 
@@ -227,9 +227,9 @@ var makertron_server = (function () {
 				var y_rotate   = parseFloat(vector[1]) * r 
 				var z_rotate   = parseFloat(vector[2]) * r
 				var obj        = arguments[0]['obj']
-				var result = this.brep_lib.rotateX( x_rotate , obj    )
-						result = this.brep_lib.rotateY( y_rotate , result )
-						result = this.brep_lib.rotateZ( z_rotate , result )
+				var result = this.brep_lib.ffi_rotateX( x_rotate , obj    )
+						result = this.brep_lib.ffi_rotateY( y_rotate , result )
+						result = this.brep_lib.ffi_rotateZ( z_rotate , result )
 				return result
 			}
 
@@ -238,7 +238,7 @@ var makertron_server = (function () {
 				this.logger("Linear Extrude: ", arguments[0]) 
 				var object = arguments[0]['object'] 
 				var height = arguments[0]['height'] 
-				return this.brep_lib.extrude(height,object); 
+				return this.brep_lib.ffi_extrude(height,object); 
 			}
 
 
@@ -285,7 +285,7 @@ var makertron_server = (function () {
 					r = 1  
 				}
 				this.debug(["sphere",r,d])  
-				var obj = this.brep_lib.sphere(r,0.0,0.0,0.0)	 	
+				var obj = this.brep_lib.ffi_sphere(r,0.0,0.0,0.0)	 	
 				return obj 
 			} 
 
@@ -326,7 +326,7 @@ var makertron_server = (function () {
 					z = -(zs / 2) 
 				}			
 				this.debug(["cube",xs,ys,zs,center])  
-				var obj = this.brep_lib.box(x,y,z,xs,ys,zs)	
+				var obj = this.brep_lib.ffi_cube(x,y,z,xs,ys,zs)	
 				return obj 
 			} 
 
@@ -378,10 +378,10 @@ var makertron_server = (function () {
 				if ( typeof(arguments[0]['center']) === "boolean" ) { center =        arguments[0]['center']      }
 				if ( center === true                              ) { y = -(h / 2)                                }			
 				if ( r1 !== r2 ) { 
-					obj = this.brep_lib.cone(r1,r2,h,y)
+					obj = this.brep_lib.ffi_cone(r1,r2,h,y)
 				}
 				else { 
-				 obj = this.brep_lib.cylinder(r1,h,y) 
+				 obj = this.brep_lib.ffi_cylinder(r1,h,y) 
 				}
 				return obj  
 			} 
@@ -428,7 +428,7 @@ var makertron_server = (function () {
 					if ( point_set[i][1] !== undefined ) { points.push( point_set[i][1] ) } else { points.push(0.0) }
 					if ( point_set[i][2] !== undefined ) { points.push( point_set[i][2] ) } else { points.push(0.0) }
 				}
-				return this.brep_lib.polyhedron(faces,points,faces.length)
+				return this.brep_lib.ffi_polyhedron(faces,points,faces.length)
 			}
 
 			// ===================================================================
@@ -469,7 +469,7 @@ var makertron_server = (function () {
 			out.create_circle = function() { 
 				this.logger("Circle")
 				var radius = arguments[0]['radius']
-		 		var obj = this.brep_lib.circle(radius); 
+		 		var obj = this.brep_lib.ffi_circle(radius); 
 				arguments[0]['obj'] = obj 
 				obj = this.perform_actions(arguments[0]) 
 				return obj 
@@ -481,7 +481,7 @@ var makertron_server = (function () {
 				var children = arguments[0]['children']  
 				var obj = children[0]
 		 		for ( var i =1; i < children.length; i++ ) {
-					var obj = this.brep_lib.uni( obj , children[i] ) 
+					var obj = this.brep_lib.ffi_uni( obj , children[i] ) 
 				}
 				return obj 
 			}
@@ -492,7 +492,7 @@ var makertron_server = (function () {
 				var children = arguments[0]['children'] 
 				var obj = children[0]
 		 		for ( var i =1; i < children.length; i++ ) {
-					var obj = this.brep_lib.difference( obj , children[i] ) 
+					var obj = this.brep_lib.ffi_difference( obj , children[i] ) 
 				}
 				return obj  
 			}
@@ -503,7 +503,7 @@ var makertron_server = (function () {
 				var children = arguments[0]['children'] 
 				var obj = children[0]
 		 		for ( var i =1; i < children.length; i++ ) {
-					var obj = this.brep_lib.intersection( obj , children[i] ) 
+					var obj = this.brep_lib.ffi_intersection( obj , children[i] ) 
 				}
 				return obj  
 			}
@@ -514,7 +514,7 @@ var makertron_server = (function () {
 				var children = arguments[0]['children'] 
 				var obj = children[0]
 		 		for ( var i =1; i < children.length; i++ ) {
-					var obj = this.brep_lib.minkowski( obj , children[i] ) 
+					var obj = this.brep_lib.ffi_minkowski( obj , children[i] ) 
 				}
 				return obj  
 			}
@@ -868,7 +868,7 @@ var makertron_server = (function () {
 						for ( var ii = 0; ii < out.stack[i].length; ii++ ) { 
 							if  ( out.stack[i][ii]['parent'] === "root" ) { 
 								for ( var iii = 0; iii < out.stack[i][ii]['objects'].length; iii++ ) { 
-									objects.push(this.brep_lib.convert_brep_tostring(out.stack[i][ii]['objects'][iii],this.quality)) 
+									objects.push(this.brep_lib.ffi_convert_brep_tostring(out.stack[i][ii]['objects'][iii],this.quality)) 
 								} 
 							}
 						}  
@@ -896,27 +896,28 @@ var makertron_server = (function () {
 					}
 					try { 
 						out.brep_lib = ffi.Library(brep_path, { 
-											"box":["string",["float","float","float","float","float","float"]],
-											"sphere":["string",["float","float","float","float"]],
-											"cone":["string",["float","float","float","float"]],
-											"polyhedron":["string",[ArrayType(ArrayType('int')),ArrayType('float'),'int']],
-											"difference":["string",["string","string"]],
-											"minkowski":["string",["string","string"]],
-											"uni":["string",["string","string"]],
-											"intersection":["string",["string","string"]],
-											"convert_brep_tostring":["string",["string","float"]],
-											"translate":["string",["float","float","float","string"]],
-											"scale":["string",["float","float","float","string"]],
-											"rotateX":["string",["float","string"]],
-											"rotateY":["string",["float","string"]],
-											"rotateZ":["string",["float","string"]],
-											"circle":["string",["float"]],
-											"extrude":["string",["float","string"]],
-											"cylinder":["string",["float","float","float"]],
+											"ffi_cube":["string",["float","float","float","float","float","float"]],
+											"ffi_sphere":["string",["float","float","float","float"]],
+											"ffi_cone":["string",["float","float","float","float"]],
+											"ffi_polyhedron":["string",[ArrayType(ArrayType('int')),ArrayType('float'),'int']],
+											"ffi_difference":["string",["string","string"]],
+											"ffi_minkowski":["string",["string","string"]],
+											"ffi_union":["string",["string","string"]],
+											"ffi_intersection":["string",["string","string"]],
+											"ffi_convert_brep_tostring":["string",["string","float"]],
+											"ffi_translate":["string",["float","float","float","string"]],
+											"ffi_scale":["string",["float","float","float","string"]],
+											"ffi_rotateX":["string",["float","string"]],
+											"ffi_rotateY":["string",["float","string"]],
+											"ffi_rotateZ":["string",["float","string"]],
+											"ffi_circle":["string",["float"]],
+											"ffi_extrude":["string",["float","string"]],
+											"ffi_cylinder":["string",["float","float","float"]],
 											"set_callback": [ "int", ["pointer"] ] 
 										}) 
 					}
 					catch(e) { 
+						console.log(e)
 						out.logger("Error in brep core")
 					}
 						
