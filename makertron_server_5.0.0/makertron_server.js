@@ -507,7 +507,7 @@ var makertron_server = (function () {
 				return obj  
 			}
 			
-			// Boolean intersection 
+			// Minkowski
 			out.create_minkowski = function() { 
 				this.logger("minkowski")
 				var children = arguments[0]['children'] 
@@ -895,23 +895,23 @@ var makertron_server = (function () {
 					}
 					try { 
 						out.brep_lib = ffi.Library(brep_path, { 
-											"ffi_cube":["string",["float","float","float","float","float","float"]],
-											"ffi_sphere":["string",["float","float","float","float"]],
-											"ffi_cone":["string",["float","float","float","float"]],
-											"ffi_polyhedron":["string",[ArrayType(ArrayType('int')),ArrayType('float'),'int']],
-											"ffi_difference":["string",["string","string"]],
-											"ffi_minkowski":["string",["string","string"]],
-											"ffi_union":["string",["string","string"]],
-											"ffi_intersection":["string",["string","string"]],
-											"ffi_convert_brep_tostring":["string",["string","float"]],
-											"ffi_translate":["string",["float","float","float","string"]],
-											"ffi_scale":["string",["float","float","float","string"]],
-											"ffi_rotateX":["string",["float","string"]],
-											"ffi_rotateY":["string",["float","string"]],
-											"ffi_rotateZ":["string",["float","string"]],
-											"ffi_circle":["string",["float"]],
-											"ffi_extrude":["string",["float","string"]],
-											"ffi_cylinder":["string",["float","float","float"]],
+											"ffi_cube":["int",["float","float","float","float","float","float"]],
+											"ffi_sphere":["int",["float","float","float","float"]],
+											"ffi_cone":["int",["float","float","float","float"]],
+											"ffi_polyhedron":["int",[ArrayType(ArrayType('int')),ArrayType('float'),'int']],
+											"ffi_difference":["int",["int","int"]],
+											"ffi_minkowski":["int",["int","int"]],
+											"ffi_union":["int",["int","int"]],
+											"ffi_intersection":["int",["int","int"]],
+											"ffi_convert_brep_tostring":["string",["int","float"]],
+											"ffi_translate":["int",["float","float","float","int"]],
+											"ffi_scale":["int",["float","float","float","int"]],
+											"ffi_rotateX":["int",["float","int"]],
+											"ffi_rotateY":["int",["float","int"]],
+											"ffi_rotateZ":["int",["float","int"]],
+											"ffi_circle":["int",["float"]],
+											"ffi_extrude":["int",["float","int"]],
+											"ffi_cylinder":["int",["float","float","float"]],
 											"set_callback": [ "int", ["pointer"] ] 
 										}) 
 					}

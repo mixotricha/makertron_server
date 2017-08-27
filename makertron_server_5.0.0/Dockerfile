@@ -26,6 +26,7 @@ RUN mv lib/* /home/mixotricha/workspace/opencascade-7.1.0/lin64/gcc/lib/
 RUN apt-get -y install libcgal-dev 
 
 RUN export DEBUG=*	
+RUN TERM=xterm
 EXPOSE 3000
 EXPOSE 80 
 
